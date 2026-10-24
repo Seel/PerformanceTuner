@@ -137,6 +137,15 @@ least 150 units since the last change (hysteresis against flutter). Both knobs c
 enabled together for maximum savings. Godray values are re-applied after every
 load/menu resume because the engine may recreate the volumes.
 
+The `gr` command handler was disassembled to understand the cost: for `grid` it simply
+stores `(int)argument` into an engine global (AE 1.11.240: RVA `0x3E7136C`, an `int32`
+in `.data`); the renderer reads that global every frame. The command is therefore only
+a writer, and each call echoes/prints in the console. To reduce the chatter,
+`iGRGridStep` quantises the grid changes (1 = every value, 2+ = fewer commands). A
+fully silent implementation would have to locate that global at runtime (it has no
+Address Library ID and moves per patch, e.g. by calibrating 6→13→6 once and diffing
+`.data`), which is possible but not implemented.
+
 ## Per-frame execution
 
 - `F4SE::GetTaskInterface()->AddTaskPermanent(...)` runs the tick once per frame on the

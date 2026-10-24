@@ -88,6 +88,7 @@ fGRQualityShadowDist3=10000
 bAdjustGRGrid=0
 iGRGridMin=6
 iGRGridMax=16
+iGRGridStep=1
 
 [Advanced]
 ; Frame history used for the frame rate estimate. Longer is calmer.

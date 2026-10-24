@@ -207,7 +207,14 @@ namespace PerfTuner
 		                           1.0f;
 
 		const int target = std::clamp(
-			static_cast<int>(std::lround(minGrid + progress * (maxGrid - minGrid))),
+			[&] {
+				int value = static_cast<int>(std::lround(minGrid + progress * (maxGrid - minGrid)));
+				if (_config.godrayGridStep > 1) {
+					value = _config.minGodrayGrid +
+					        ((value - _config.minGodrayGrid) / _config.godrayGridStep) * _config.godrayGridStep;
+				}
+				return value;
+			}(),
 			_config.minGodrayGrid,
 			_config.maxGodrayGrid);
 

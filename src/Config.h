@@ -23,6 +23,7 @@ namespace PerfTuner
 		bool               adjustGodrayGrid{ false };
 		int                minGodrayGrid{ 6 };
 		int                maxGodrayGrid{ 16 };
+		int                godrayGridStep{ 1 };
 
 		// [Advanced]
 		bool  showDiagnostics{ false };
