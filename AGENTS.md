@@ -166,27 +166,26 @@ than the game version itself:
 |---|---|---|
 | AE 1.11.x | 0.7.x | supported, tested on 1.11.240 |
 | NG 1.10.980/984 | 0.7.x | same API and NG IDs are compiled in; untested |
-| OG 1.10.163 (incl. GOG) | 0.6.23 | supported, tested on GOG 1.10.163 (hook + paced fallback) |
+| OG 1.10.163 (incl. GOG) | 0.6.23 | supported, tested on GOG 1.10.163 (OnIdle hook) |
 
-Why OG needs a fallback: F4SE 0.6.23 has no `F4SEPlugin_Version` export, so the plugin
-metadata (`addressIndependence`, `compatibleVersions`) is never read (harmless), and its
-`F4SETaskInterface` has only `AddTask` / `AddUITask` — no `AddTaskPermanent`. It also
-drains the task queue in a `while (!s_tasks.empty())` loop, so a task must not re-queue
-itself; it would run again in the same pass, forever.
+Why OG needs a different tick: F4SE 0.6.23 has no `F4SEPlugin_Version` export, so the
+plugin metadata (`addressIndependence`, `compatibleVersions`) is never read (harmless),
+and its `F4SETaskInterface` has only `AddTask` / `AddUITask` — no `AddTaskPermanent`. It
+also drains the task queue in a `while (!s_tasks.empty())` loop, so a task must not
+re-queue itself; it would run again in the same pass, forever.
 
 The plugin branches on `F4SE::GetF4SEVersion()`. 0.7.x+ uses `AddTaskPermanent`. 0.6.x
 (OG) patches the `call Main::OnIdle` instruction in the main loop: `FindOnIdleCallSite`
 scans `Main::Run` and `Main::Run_WindowsMessageLoop` for a direct `E8` call whose target
 is `Main::OnIdle`, then `REL::Trampoline::write_call<5>` replaces that one instruction.
 The hook calls the original OnIdle and then runs the tick. If no call site is found (or
-the whole-`.text` fallback is ambiguous), a pacer thread that enqueues at most one
-`AddTask` per frame is used instead.
+the whole-`.text` scan is ambiguous), the plugin logs an error and fails to load; the
+game continues without tuning.
 
 Validated on GOG 1.10.163.0 with F4SE 0.6.23: `Main::Run` makes a single direct
 `call Main::OnIdle` (call at RVA `0xD36E0B`, target `0xD38E60`) and OnIdle receives
-`this` in RCX. Both the hook (`bUseOnIdleHook=1`; the log shows
-`Hooked the Main::OnIdle call at 0x...`) and the paced-task fallback were tested in
-game. Set `bUseOnIdleHook=0` to force the fallback.
+`this` in RCX. The hook was tested in game; the log shows
+`Hooked the Main::OnIdle call at 0x...`.
 
 OG still needs `version-1-10-163-0.bin` next to the plugin and F4SE 0.6.23; the OG IDs
 are compiled in through `COMMONLIB_RUNTIMECOUNT=3`.

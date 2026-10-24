@@ -3,13 +3,10 @@
 #include "Tuner.h"
 
 #include <algorithm>
-#include <atomic>
-#include <chrono>
 #include <cstring>
 #include <filesystem>
 #include <memory>
 #include <mutex>
-#include <thread>
 
 namespace
 {
@@ -22,9 +19,6 @@ namespace
 
 	OnIdleFn          g_onIdleOriginal{ nullptr };
 	REL::Trampoline*  g_ogTrampoline{ nullptr };
-
-	std::atomic_bool g_tickerStop{ false };
-	std::atomic_bool g_tickPending{ false };
 
 	void OnFrame()
 	{
@@ -122,26 +116,7 @@ namespace
 		return true;
 	}
 
-	void LegacyTick()
-	{
-		g_tickPending.store(false, std::memory_order_release);
-		OnFrame();
-	}
-
-	void RunLegacyTicker(const F4SE::TaskInterface* a_tasks)
-	{
-		using namespace std::chrono_literals;
-
-		while (!g_tickerStop.load(std::memory_order_acquire)) {
-			if (!g_tickPending.exchange(true, std::memory_order_acq_rel)) {
-				a_tasks->AddTask(LegacyTick);
-			}
-
-			std::this_thread::sleep_for(2ms);
-		}
-	}
-
-	bool RegisterFrameCallback(const bool a_useOnIdleHook)
+	bool RegisterFrameCallback()
 	{
 		const auto* tasks = F4SE::GetTaskInterface();
 		if (!tasks) {
@@ -157,12 +132,10 @@ namespace
 
 		REX::INFO("F4SE {} detected (OG generation).", F4SE::GetF4SEVersion().string());
 
-		if (a_useOnIdleHook && InstallOnIdleHook()) {
-			return true;
+		if (!InstallOnIdleHook()) {
+			REX::ERROR("Could not locate the Main::OnIdle call; tuning disabled."sv);
+			return false;
 		}
-
-		REX::WARN("Falling back to the paced task tick for this session."sv);
-		std::thread(RunLegacyTicker, tasks).detach();
 
 		return true;
 	}
@@ -190,7 +163,7 @@ namespace
 
 			g_tuner = std::make_unique<PerfTuner::Tuner>(std::move(config));
 
-			if (!RegisterFrameCallback(config.useOnIdleHook)) {
+			if (!RegisterFrameCallback()) {
 				return;
 			}
 
@@ -222,3 +195,5 @@ F4SE_PLUGIN_LOAD(const F4SE::LoadInterface* a_f4se)
 {
 	return Initialize(a_f4se);
 }
+
+

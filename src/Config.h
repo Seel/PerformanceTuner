@@ -26,7 +26,6 @@ namespace PerfTuner
 		float diagnosticInterval{ 1.0f };
 		float resumeGraceTime{ 1.0f };
 		float loadWindowTime{ 2.0f };
-		bool  useOnIdleHook{ true };
 
 		// 100% load is one frame at maxFPS.
 		[[nodiscard]] float TargetFrameTime() const noexcept
