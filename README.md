@@ -93,6 +93,10 @@ iGRGridMax=16
 iGRGridStep=1
 
 [Advanced]
+; Write PerformanceTuner.log into Documents\My Games\Fallout4\F4SE. Off by default.
+; bShowDiagnostics implies logging (see below).
+bEnableLogging=0
+
 ; Frame history used for the frame rate estimate. Longer is calmer.
 fLoadWindowTime=2.0
 

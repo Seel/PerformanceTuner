@@ -129,6 +129,8 @@ namespace
 			if (const auto value = ParseFloat(a_value)) {
 				a_config.godrayQualityDistances[2] = *value;
 			}
+		} else if (IEquals(a_key, "bEnableLogging"sv)) {
+			a_config.enableLogging = ParseBool(a_value);
 		} else if (IEquals(a_key, "bShowDiagnostics"sv)) {
 			a_config.showDiagnostics = ParseBool(a_value);
 		} else if (IEquals(a_key, "fDebugMessageFrequency"sv)) {
@@ -189,7 +191,6 @@ PerfTuner::Config PerfTuner::Config::Load(const std::filesystem::path& a_path)
 
 	std::ifstream file(a_path);
 	if (!file) {
-		REX::WARN("Configuration file not found, using defaults: {}", a_path.string());
 		return config;
 	}
 
@@ -209,7 +210,7 @@ PerfTuner::Config PerfTuner::Config::Load(const std::filesystem::path& a_path)
 	}
 
 	Validate(config);
-	REX::INFO("Configuration loaded from {}.", a_path.string());
 
 	return config;
 }
+

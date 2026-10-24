@@ -26,6 +26,7 @@ namespace PerfTuner
 		int                godrayGridStep{ 1 };
 
 		// [Advanced]
+		bool  enableLogging{ false };
 		bool  showDiagnostics{ false };
 		float diagnosticInterval{ 1.0f };
 		float resumeGraceTime{ 1.0f };

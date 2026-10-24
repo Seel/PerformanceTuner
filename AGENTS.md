@@ -48,10 +48,14 @@ Output: `build\windows\x64\release\PerformanceTuner.dll`.
 ## Testing
 
 - Install to `...\Fallout 4\Data\F4SE\Plugins\PerformanceTuner.dll` and `.ini`.
-- Launch through F4SE. Plugin log:
-  `Documents\My Games\Fallout4\F4SE\PerformanceTuner.log` (truncated each launch).
+- Logging is **off by default**. `bEnableLogging=1` creates
+  `Documents\My Games\Fallout4\F4SE\PerformanceTuner.log`; `bShowDiagnostics=1` implies
+  logging and adds the periodic state line. The config is read before `F4SE::Init` so the
+  choice can be passed as `InitInfo::log` (with logging off, REX messages fall through to
+  spdlog's default logger and are discarded).
 - `bShowDiagnostics=1` logs one line every `1/fDebugMessageFrequency` seconds with
-  `cached=`, `setting=`, `momentum=`, `load=`, `fps=`, `median=`, `paused=`, `grace=`.
+  `cached=`, `setting=`, `momentum=`, `load=`, `fps=`, `median=`, `paused=`, `grace=`,
+  `gr=`, `grid=`.
 - The task only runs while the world renders; main menu, loading, pause, Pip-Boy and
   sleep/wait menus are gated.
 

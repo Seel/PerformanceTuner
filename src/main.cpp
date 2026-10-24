@@ -146,12 +146,23 @@ namespace
 		static bool         initialized = false;
 
 		std::call_once(once, [&] {
-			F4SE::Init(a_f4se);
-
 			const auto modulePath = std::filesystem::path(REX::FModule::GetCurrentModule().GetFileName());
 			const auto configPath = modulePath.parent_path() / "PerformanceTuner.ini";
+			const bool configExists = std::filesystem::exists(configPath);
 
 			auto config = PerfTuner::Config::Load(configPath);
+
+			// Diagnostic output only exists in the log, so asking for diagnostics implies it.
+			config.enableLogging = config.enableLogging || config.showDiagnostics;
+
+			F4SE::Init(a_f4se, F4SE::InitInfo{ .log = config.enableLogging });
+
+			if (configExists) {
+				REX::INFO("Configuration loaded from {}.", configPath.string());
+			} else {
+				REX::WARN("Configuration file not found, using defaults: {}", configPath.string());
+			}
+
 			REX::INFO(
 				"Target band {:.0f}-{:.0f} FPS ({:.2f} ms at max), distance {:.0f}..{:.0f}, godray quality {}, grid {}..{} ({}).",
 				config.minFPS,
