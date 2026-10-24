@@ -9,7 +9,7 @@ An F4SE plugin for Fallout 4 that keeps the frame rate inside a configurable ban
 moving the directional shadow distance at runtime. It replaces the original `dxgi.dll`
 proxy, which is preserved under `legacy/`.
 
-- Game: Fallout 4 AE 1.11.240.0 was the development target.
+- Game: developed on AE 1.11.240.0; OG 1.10.163.0 (GOG) is also tested.
 - Runtime dependency: F4SE + the Address Library for F4SE Plugins.
 - Build dependency: CommonLibF4, pinned as the `lib/commonlibf4` submodule
   (`Dear-Modding-FO4/commonlibf4`, branch `main`).
@@ -97,6 +97,22 @@ Relevant IDs for AE 1.11.240 (from `version-1-11-240-0.bin`):
 | `BSTimer::Singleton` | 2703179 | 0x339F420 |
 | `Console::ExecuteCommand` | 2248537 | 0x1036250 |
 
+Relevant IDs for OG 1.10.163 (verified against `version-1-10-163-0.bin`):
+
+| Symbol | OG ID | RVA |
+|---|---|---|
+| `Main::OnIdle` | 633524 | 0xD38E60 |
+| `Main::Run` | 1125396 | 0xD36D50 |
+| `BSShaderManager::CachedDirectionalShadowDistance` | 777729 | 0x67333DC |
+| `ShadowSettings::fDirShadowDistance` | 962234 | 0x38CB438 |
+| `UI::Singleton` | 548587 | 0x58D0898 |
+| `BSTimer::Singleton` | 1256126 | 0x5B5B6C0 |
+| `Console::ExecuteCommand` | 1061864 | 0x125B4A0 |
+
+The OG cache RVA (`0x67333DC`) is exactly the address the original dxgi mod called
+`fShadowDirDistance`, confirming that the old global and the modern cache are the same
+variable.
+
 ## Godray quality
 
 There is no cached wrapper and `iVolumetricLightingQuality` is not in
@@ -150,7 +166,7 @@ than the game version itself:
 |---|---|---|
 | AE 1.11.x | 0.7.x | supported, tested on 1.11.240 |
 | NG 1.10.980/984 | 0.7.x | same API and NG IDs are compiled in; untested |
-| OG 1.10.163 (incl. GOG) | 0.6.23 | experimental fallback, untested |
+| OG 1.10.163 (incl. GOG) | 0.6.23 | supported, tested on GOG 1.10.163 (hook + paced fallback) |
 
 Why OG needs a fallback: F4SE 0.6.23 has no `F4SEPlugin_Version` export, so the plugin
 metadata (`addressIndependence`, `compatibleVersions`) is never read (harmless), and its
@@ -166,9 +182,11 @@ The hook calls the original OnIdle and then runs the tick. If no call site is fo
 the whole-`.text` fallback is ambiguous), a pacer thread that enqueues at most one
 `AddTask` per frame is used instead.
 
-This path is **untested** (no 1.10.163 install during development). It assumes
-`Main::OnIdle` takes only `this` and that the call is a direct rel32 call. If the game
-misbehaves on OG, set `bUseOnIdleHook=0` to force the paced-task fallback.
+Validated on GOG 1.10.163.0 with F4SE 0.6.23: `Main::Run` makes a single direct
+`call Main::OnIdle` (call at RVA `0xD36E0B`, target `0xD38E60`) and OnIdle receives
+`this` in RCX. Both the hook (`bUseOnIdleHook=1`; the log shows
+`Hooked the Main::OnIdle call at 0x...`) and the paced-task fallback were tested in
+game. Set `bUseOnIdleHook=0` to force the fallback.
 
 OG still needs `version-1-10-163-0.bin` next to the plugin and F4SE 0.6.23; the OG IDs
 are compiled in through `COMMONLIB_RUNTIMECOUNT=3`.
