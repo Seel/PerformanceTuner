@@ -150,15 +150,25 @@ than the game version itself:
 |---|---|---|
 | AE 1.11.x | 0.7.x | supported, tested on 1.11.240 |
 | NG 1.10.980/984 | 0.7.x | same API and NG IDs are compiled in; untested |
-| OG 1.10.163 (incl. GOG) | 0.6.23 | **not supported** |
+| OG 1.10.163 (incl. GOG) | 0.6.23 | experimental fallback, untested |
 
-Why OG does not work: F4SE 0.6.23 has no `F4SEPlugin_Version` export, so the plugin
-metadata (`addressIndependence`, `compatibleVersions`) is never read, and its
-`F4SETaskInterface` has only `AddTask` / `AddUITask`. The plugin calls
-`AddTaskPermanent` unconditionally; on 0.6.23 that reads past the interface struct.
-Supporting OG requires guarding on `F4SE::GetF4SEVersion()`, replacing the permanent
-task with a self-requeueing `AddTask` (or a `Main::OnIdle` hook), verifying the OG IDs
-against `version-1-10-163-0.bin`, and testing on a real OG install.
+Why OG needs a fallback: F4SE 0.6.23 has no `F4SEPlugin_Version` export, so the plugin
+metadata (`addressIndependence`, `compatibleVersions`) is never read (harmless), and its
+`F4SETaskInterface` has only `AddTask` / `AddUITask` — no `AddTaskPermanent`. It also
+drains the task queue in a `while (!s_tasks.empty())` loop, so a task must not re-queue
+itself; it would run again in the same pass, forever.
+
+The plugin branches on `F4SE::GetF4SEVersion()`: 0.7.x+ uses `AddTaskPermanent`, 0.6.x
+starts a small pacer thread that adds at most one `AddTask` per frame (guarded by
+`g_tickPending`); the task itself still runs on the main thread. The cost is one small
+allocation per frame and no code patching. A `Main::OnIdle` call-site hook would avoid
+that allocation, but its call site and signature cannot be validated without a 1.10.163
+install, so it remains a possible follow-up once OG testing is available.
+
+OG still needs `version-1-10-163-0.bin` next to the plugin and F4SE 0.6.23; the OG IDs
+are compiled in through `COMMONLIB_RUNTIMECOUNT=3`. The plugin log shows
+`F4SE 0.6.23.0 detected (OG generation): using the paced task tick fallback.` when the
+fallback is active.
 
 F4SE also ignores `CompatibleVersions` when the plugin declares AE address-library and
 layout independence, so within AE 1.11.x a new patch only needs an updated Address

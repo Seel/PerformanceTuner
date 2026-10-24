@@ -2,19 +2,70 @@
 #include "Config.h"
 #include "Tuner.h"
 
+#include <atomic>
+#include <chrono>
 #include <filesystem>
 #include <memory>
 #include <mutex>
+#include <thread>
 
 namespace
 {
 	std::unique_ptr<PerfTuner::Tuner> g_tuner;
+
+	// F4SE 0.6.x (the OG 1.10.163 generation) has no AddTaskPermanent, and its task queue is
+	// drained in a while loop, so a task must never re-queue itself. A small pacer thread adds
+	// at most one task per frame instead; the task itself still runs on the main thread.
+	std::atomic_bool g_tickerStop{ false };
+	std::atomic_bool g_tickPending{ false };
 
 	void OnFrame()
 	{
 		if (g_tuner) {
 			g_tuner->Update();
 		}
+	}
+
+	void LegacyTick()
+	{
+		g_tickPending.store(false, std::memory_order_release);
+		OnFrame();
+	}
+
+	void RunLegacyTicker(const F4SE::TaskInterface* a_tasks)
+	{
+		using namespace std::chrono_literals;
+
+		while (!g_tickerStop.load(std::memory_order_acquire)) {
+			if (!g_tickPending.exchange(true, std::memory_order_acq_rel)) {
+				a_tasks->AddTask(LegacyTick);
+			}
+
+			std::this_thread::sleep_for(2ms);
+		}
+	}
+
+	bool RegisterFrameCallback()
+	{
+		const auto* tasks = F4SE::GetTaskInterface();
+		if (!tasks) {
+			REX::ERROR("The F4SE task interface is unavailable; tuning disabled."sv);
+			return false;
+		}
+
+		if (F4SE::GetF4SEVersion() >= REL::Version{ 0, 7, 0, 0 }) {
+			tasks->AddTaskPermanent(OnFrame);
+			REX::INFO("Using the F4SE permanent task tick."sv);
+			return true;
+		}
+
+		REX::INFO(
+			"F4SE {} detected (OG generation): using the paced task tick fallback.",
+			F4SE::GetF4SEVersion().string());
+
+		std::thread(RunLegacyTicker, tasks).detach();
+
+		return true;
 	}
 
 	bool Initialize(const F4SE::LoadInterface* a_f4se)
@@ -40,13 +91,9 @@ namespace
 
 			g_tuner = std::make_unique<PerfTuner::Tuner>(std::move(config));
 
-			const auto* tasks = F4SE::GetTaskInterface();
-			if (!tasks) {
-				REX::ERROR("The F4SE task interface is unavailable; tuning disabled."sv);
+			if (!RegisterFrameCallback()) {
 				return;
 			}
-
-			tasks->AddTaskPermanent(OnFrame);
 
 			initialized = true;
 			REX::INFO("{} v{}.{}.{} initialized on runtime {}.",
