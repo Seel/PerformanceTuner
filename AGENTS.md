@@ -140,11 +140,14 @@ load/menu resume because the engine may recreate the volumes.
 The `gr` command handler was disassembled to understand the cost: for `grid` it simply
 stores `(int)argument` into an engine global (AE 1.11.240: RVA `0x3E7136C`, an `int32`
 in `.data`); the renderer reads that global every frame. The command is therefore only
-a writer, and each call echoes/prints in the console. To reduce the chatter,
-`iGRGridStep` quantises the grid changes (1 = every value, 2+ = fewer commands). A
-fully silent implementation would have to locate that global at runtime (it has no
-Address Library ID and moves per patch, e.g. by calibrating 6→13→6 once and diffing
-`.data`), which is possible but not implemented.
+a writer, and each call echoes/prints in the console.
+
+The plugin locates that global itself on the first grid adjustment: it sets the grid to
+6 and 13 through the console, keeps the ints in the game's `.data` that follow both
+transitions, and takes the single surviving address. After that the grid is a plain int
+store — no command, no echo, no parsing. If calibration finds zero or several
+candidates it logs a warning and falls back to the console command path.
+`iGRGridStep` still quantises the values.
 
 ## Per-frame execution
 

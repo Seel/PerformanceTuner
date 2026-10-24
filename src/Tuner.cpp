@@ -2,12 +2,89 @@
 #include "Tuner.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <format>
+#include <vector>
 
 namespace
 {
 	constexpr float kMaximumFrameTime = 0.5f;  // seconds; longer frames are treated as a hitch
 	constexpr float kGodrayGridHysteresis = 150.0f;  // world units between grid changes
+
+	// The `gr grid` console command only stores an int into an engine global that the
+	// renderer reads every frame, but it also echoes in the console. Find that global once
+	// by watching which int in .data follows the value across two command invocations; after
+	// that the grid is written directly, silently and without command parsing.
+	constexpr int kGridCalibrationLow = 6;
+	constexpr int kGridCalibrationHigh = 13;
+
+	std::int32_t* g_godrayGridGlobal{ nullptr };
+	bool          g_godrayGridCalibrationDone{ false };
+
+	void SetGodrayGrid(int a_value)
+	{
+		if (g_godrayGridGlobal) {
+			*g_godrayGridGlobal = a_value;
+			return;
+		}
+
+		RE::Console::ExecuteCommand(std::format("gr grid {}", a_value).c_str());
+	}
+
+	void CalibrateGodrayGrid()
+	{
+		if (g_godrayGridCalibrationDone) {
+			return;
+		}
+
+		g_godrayGridCalibrationDone = true;
+
+		const auto module = REX::FModule::GetExecutingModule();
+		const auto data = module.GetSection(".data");
+		const auto begin = reinterpret_cast<std::uintptr_t>(data.GetPointer<std::byte>());
+		const auto size = data.GetSize();
+
+		if (!begin || size < sizeof(std::int32_t)) {
+			REX::WARN("Cannot locate the godray grid global: no usable .data section."sv);
+			return;
+		}
+
+		SetGodrayGrid(kGridCalibrationLow);
+
+		std::vector<std::int32_t*> candidates;
+		candidates.reserve(65536);
+		for (std::size_t offset = 0; offset + sizeof(std::int32_t) <= size; offset += sizeof(std::int32_t)) {
+			auto* value = reinterpret_cast<std::int32_t*>(begin + offset);
+			if (*value == kGridCalibrationLow) {
+				candidates.push_back(value);
+			}
+		}
+
+		SetGodrayGrid(kGridCalibrationHigh);
+		candidates.erase(
+			std::remove_if(candidates.begin(), candidates.end(), [](const std::int32_t* a_value) {
+				return *a_value != kGridCalibrationHigh;
+			}),
+			candidates.end());
+
+		SetGodrayGrid(kGridCalibrationLow);
+		candidates.erase(
+			std::remove_if(candidates.begin(), candidates.end(), [](const std::int32_t* a_value) {
+				return *a_value != kGridCalibrationLow;
+			}),
+			candidates.end());
+
+		if (candidates.size() == 1) {
+			g_godrayGridGlobal = candidates.front();
+			REX::INFO(
+				"Godray grid global located at 0x{:X}.",
+				reinterpret_cast<std::uintptr_t>(g_godrayGridGlobal));
+		} else {
+			REX::WARN(
+				"Godray grid calibration found {} candidate(s); falling back to console commands.",
+				candidates.size());
+		}
+	}
 
 	// The tuner must not fight the game while it is not rendering the world.
 	// These menus either pause the simulation or replace the rendered scene.
@@ -198,6 +275,10 @@ namespace PerfTuner
 
 	void Tuner::ApplyGodrayGrid(float a_shadowDistance)
 	{
+		if (!g_godrayGridCalibrationDone) {
+			CalibrateGodrayGrid();
+		}
+
 		const auto minGrid = static_cast<float>(_config.minGodrayGrid);
 		const auto maxGrid = static_cast<float>(_config.maxGodrayGrid);
 
@@ -232,7 +313,7 @@ namespace PerfTuner
 		_lastGodrayGridDistance = a_shadowDistance;
 
 		REX::INFO("Applying godray grid {}.", target);
-		RE::Console::ExecuteCommand(std::format("gr grid {}", target).c_str());
+		SetGodrayGrid(target);
 	}
 
 	void Tuner::ApplyGodrayQuality(float a_shadowDistance)

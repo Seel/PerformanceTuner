@@ -85,6 +85,8 @@ fGRQualityShadowDist3=10000
 ; Or reduce the godray grid resolution instead of / in addition to the quality level.
 ; Lower values make the beams chunkier and cheaper; interpolated from
 ; fShadowDirDistanceMin (iGRGridMin) to fShadowDirDistanceMax (iGRGridMax).
+; The engine global is located once at runtime (three console commands), after which
+; changes are written directly and silently.
 bAdjustGRGrid=0
 iGRGridMin=6
 iGRGridMax=16
