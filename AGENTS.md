@@ -142,12 +142,18 @@ stores `(int)argument` into an engine global (AE 1.11.240: RVA `0x3E7136C`, an `
 in `.data`); the renderer reads that global every frame. The command is therefore only
 a writer, and each call echoes/prints in the console.
 
-The plugin locates that global itself on the first grid adjustment: it sets the grid to
-6 and 13 through the console, keeps the ints in the game's `.data` that follow both
-transitions, and takes the single surviving address. After that the grid is a plain int
-store — no command, no echo, no parsing. If calibration finds zero or several
-candidates it logs a warning and falls back to the console command path.
+The plugin locates that global silently, without running the command: it finds the
+`UpdateGodraySettings` entry in the console function table through
+`RE::SCRIPT_FUNCTION::LocateConsoleCommand`, scans the handler for the grid branch's
+`F3 0F 2C C1 89 05` store (present in both OG and AE), and extracts the RIP-relative
+target, validating that it lands inside `.data`. The resulting address is used from then
+on as a plain int store — no command, no echo, no parsing. If the command or a unique
+candidate is not found it logs a warning and falls back to the console command path.
 `iGRGridStep` still quantises the values.
+
+Note: an earlier attempt calibrated by executing `gr grid 6/13/6` and diffing `.data`;
+that fails because `Console::ExecuteCommand` does not apply the command synchronously,
+so the scan runs before the global changes.
 
 ## Per-frame execution
 

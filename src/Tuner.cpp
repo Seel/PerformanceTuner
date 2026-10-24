@@ -3,8 +3,8 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <format>
-#include <vector>
 
 namespace
 {
@@ -12,14 +12,10 @@ namespace
 	constexpr float kGodrayGridHysteresis = 150.0f;  // world units between grid changes
 
 	// The `gr grid` console command only stores an int into an engine global that the
-	// renderer reads every frame, but it also echoes in the console. Find that global once
-	// by watching which int in .data follows the value across two command invocations; after
-	// that the grid is written directly, silently and without command parsing.
-	constexpr int kGridCalibrationLow = 6;
-	constexpr int kGridCalibrationHigh = 13;
-
+	// renderer reads every frame, but it also echoes in the console. Locate that global once
+	// from the command handler and write it directly afterwards, silently.
 	std::int32_t* g_godrayGridGlobal{ nullptr };
-	bool          g_godrayGridCalibrationDone{ false };
+	bool          g_godrayGridLookupDone{ false };
 
 	void SetGodrayGrid(int a_value)
 	{
@@ -31,59 +27,55 @@ namespace
 		RE::Console::ExecuteCommand(std::format("gr grid {}", a_value).c_str());
 	}
 
-	void CalibrateGodrayGrid()
+	// The grid branch of the handler compiles to `cvttss2si eax, xmm1; mov [rip+disp], eax`
+	// in every tested runtime, so the global can be recovered from that displacement. The
+	// candidate is validated against the game's .data section before it is used.
+	[[nodiscard]] std::int32_t* FindGodrayGridGlobal()
 	{
-		if (g_godrayGridCalibrationDone) {
-			return;
+		const auto* command = RE::SCRIPT_FUNCTION::LocateConsoleCommand("UpdateGodraySettings"sv);
+		if (!command || !command->executeFunction) {
+			REX::WARN("Godray grid: console command not found."sv);
+			return nullptr;
 		}
-
-		g_godrayGridCalibrationDone = true;
 
 		const auto module = REX::FModule::GetExecutingModule();
 		const auto data = module.GetSection(".data");
-		const auto begin = reinterpret_cast<std::uintptr_t>(data.GetPointer<std::byte>());
-		const auto size = data.GetSize();
+		const auto dataBegin = reinterpret_cast<std::uintptr_t>(data.GetPointer<std::byte>());
+		const auto dataEnd = dataBegin + data.GetSize();
 
-		if (!begin || size < sizeof(std::int32_t)) {
-			REX::WARN("Cannot locate the godray grid global: no usable .data section."sv);
-			return;
-		}
+		static constexpr std::array<std::uint8_t, 6> kStorePattern{ 0xF3, 0x0F, 0x2C, 0xC1, 0x89, 0x05 };
+		constexpr std::size_t                        kScanBytes = 0x1400;
 
-		SetGodrayGrid(kGridCalibrationLow);
+		const auto* code = reinterpret_cast<const std::uint8_t*>(command->executeFunction);
 
-		std::vector<std::int32_t*> candidates;
-		candidates.reserve(65536);
-		for (std::size_t offset = 0; offset + sizeof(std::int32_t) <= size; offset += sizeof(std::int32_t)) {
-			auto* value = reinterpret_cast<std::int32_t*>(begin + offset);
-			if (*value == kGridCalibrationLow) {
-				candidates.push_back(value);
+		std::int32_t* found = nullptr;
+		for (std::size_t i = 0; i + kStorePattern.size() + sizeof(std::int32_t) <= kScanBytes; ++i) {
+			if (std::memcmp(code + i, kStorePattern.data(), kStorePattern.size()) != 0) {
+				continue;
 			}
+
+			std::int32_t displacement{};
+			std::memcpy(&displacement, code + i + kStorePattern.size(), sizeof(displacement));
+
+			const auto instruction = reinterpret_cast<std::uintptr_t>(code + i);
+			const auto target = instruction + kStorePattern.size() + sizeof(displacement) + displacement;
+			if (target < dataBegin || target + sizeof(std::int32_t) > dataEnd) {
+				continue;
+			}
+
+			if (found) {
+				REX::WARN("Godray grid: multiple candidate globals."sv);
+				return nullptr;
+			}
+
+			found = reinterpret_cast<std::int32_t*>(target);
 		}
 
-		SetGodrayGrid(kGridCalibrationHigh);
-		candidates.erase(
-			std::remove_if(candidates.begin(), candidates.end(), [](const std::int32_t* a_value) {
-				return *a_value != kGridCalibrationHigh;
-			}),
-			candidates.end());
-
-		SetGodrayGrid(kGridCalibrationLow);
-		candidates.erase(
-			std::remove_if(candidates.begin(), candidates.end(), [](const std::int32_t* a_value) {
-				return *a_value != kGridCalibrationLow;
-			}),
-			candidates.end());
-
-		if (candidates.size() == 1) {
-			g_godrayGridGlobal = candidates.front();
-			REX::INFO(
-				"Godray grid global located at 0x{:X}.",
-				reinterpret_cast<std::uintptr_t>(g_godrayGridGlobal));
-		} else {
-			REX::WARN(
-				"Godray grid calibration found {} candidate(s); falling back to console commands.",
-				candidates.size());
+		if (!found) {
+			REX::WARN("Godray grid: global not found."sv);
 		}
+
+		return found;
 	}
 
 	// The tuner must not fight the game while it is not rendering the world.
@@ -275,8 +267,17 @@ namespace PerfTuner
 
 	void Tuner::ApplyGodrayGrid(float a_shadowDistance)
 	{
-		if (!g_godrayGridCalibrationDone) {
-			CalibrateGodrayGrid();
+		if (!g_godrayGridLookupDone) {
+			g_godrayGridLookupDone = true;
+			g_godrayGridGlobal = FindGodrayGridGlobal();
+
+			if (g_godrayGridGlobal) {
+				REX::INFO(
+					"Godray grid global located at 0x{:X}.",
+					reinterpret_cast<std::uintptr_t>(g_godrayGridGlobal));
+			} else {
+				REX::WARN("Godray grid: falling back to console commands."sv);
+			}
 		}
 
 		const auto minGrid = static_cast<float>(_config.minGodrayGrid);
