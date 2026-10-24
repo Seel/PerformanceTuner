@@ -6,3 +6,4 @@ build/
 vsxmake*/
 compile_commands.json
 backup/
+release/
