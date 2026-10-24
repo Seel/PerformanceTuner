@@ -103,6 +103,16 @@ namespace
 			if (const auto value = ParseFloat(a_value)) {
 				a_config.maxGodrayQuality = static_cast<int>(*value);
 			}
+		} else if (IEquals(a_key, "bAdjustGRGrid"sv)) {
+			a_config.adjustGodrayGrid = ParseBool(a_value);
+		} else if (IEquals(a_key, "iGRGridMin"sv)) {
+			if (const auto value = ParseFloat(a_value)) {
+				a_config.minGodrayGrid = static_cast<int>(*value);
+			}
+		} else if (IEquals(a_key, "iGRGridMax"sv)) {
+			if (const auto value = ParseFloat(a_value)) {
+				a_config.maxGodrayGrid = static_cast<int>(*value);
+			}
 		} else if (IEquals(a_key, "fGRQualityShadowDist1"sv)) {
 			if (const auto value = ParseFloat(a_value)) {
 				a_config.godrayQualityDistances[0] = *value;
@@ -149,6 +159,8 @@ namespace
 		std::ranges::sort(a_config.godrayQualityDistances);
 		a_config.minGodrayQuality = std::clamp(a_config.minGodrayQuality, 0, 3);
 		a_config.maxGodrayQuality = std::clamp(a_config.maxGodrayQuality, a_config.minGodrayQuality, 3);
+		a_config.minGodrayGrid = std::clamp(a_config.minGodrayGrid, 1, 64);
+		a_config.maxGodrayGrid = std::clamp(a_config.maxGodrayGrid, a_config.minGodrayGrid, 64);
 		a_config.diagnosticInterval = std::max(a_config.diagnosticInterval, 0.1f);
 		a_config.resumeGraceTime = std::clamp(a_config.resumeGraceTime, 0.0f, 10.0f);
 		a_config.loadWindowTime = std::clamp(a_config.loadWindowTime, 0.1f, 5.0f);

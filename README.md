@@ -76,9 +76,18 @@ fShadowDirDistanceMax=8000
 
 ; Optionally derive the godray quality from the shadow distance.
 bAdjustGRQuality=0
+iMinGRQuality=0
+iMaxGRQuality=3
 fGRQualityShadowDist1=3000
 fGRQualityShadowDist2=6000
 fGRQualityShadowDist3=10000
+
+; Or reduce the godray grid resolution instead of / in addition to the quality level.
+; Lower values make the beams chunkier and cheaper; interpolated from
+; fShadowDirDistanceMin (iGRGridMin) to fShadowDirDistanceMax (iGRGridMax).
+bAdjustGRGrid=0
+iGRGridMin=6
+iGRGridMax=16
 
 [Advanced]
 ; Frame history used for the frame rate estimate. Longer is calmer.

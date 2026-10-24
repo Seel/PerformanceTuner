@@ -20,6 +20,9 @@ namespace PerfTuner
 		int                minGodrayQuality{ 0 };
 		int                maxGodrayQuality{ 3 };
 		std::array<float, 3> godrayQualityDistances{ 3000.0f, 6000.0f, 10000.0f };
+		bool               adjustGodrayGrid{ false };
+		int                minGodrayGrid{ 6 };
+		int                maxGodrayGrid{ 16 };
 
 		// [Advanced]
 		bool  showDiagnostics{ false };

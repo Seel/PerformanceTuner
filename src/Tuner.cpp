@@ -7,6 +7,7 @@
 namespace
 {
 	constexpr float kMaximumFrameTime = 0.5f;  // seconds; longer frames are treated as a hitch
+	constexpr float kGodrayGridHysteresis = 150.0f;  // world units between grid changes
 
 	// The tuner must not fight the game while it is not rendering the world.
 	// These menus either pause the simulation or replace the rendered scene.
@@ -91,6 +92,11 @@ namespace PerfTuner
 			_wasPaused = false;
 			_resumeAt = now;
 			ResetSamples();
+
+			// The engine may recreate godray volumes when a world loads, so re-apply the
+			// current quality/grid choices instead of assuming they survived.
+			_lastGodrayQuality = -1;
+			_lastGodrayGrid = -1;
 		}
 
 		// Streaming and physics settle right after a load; adjusting then would chase
@@ -184,6 +190,42 @@ namespace PerfTuner
 		if (_config.adjustGodrayQuality) {
 			ApplyGodrayQuality(next);
 		}
+
+		if (_config.adjustGodrayGrid) {
+			ApplyGodrayGrid(next);
+		}
+	}
+
+	void Tuner::ApplyGodrayGrid(float a_shadowDistance)
+	{
+		const auto minGrid = static_cast<float>(_config.minGodrayGrid);
+		const auto maxGrid = static_cast<float>(_config.maxGodrayGrid);
+
+		const float span = _config.maxDistance - _config.minDistance;
+		const float progress = span > 0.0f ?
+		                           std::clamp((a_shadowDistance - _config.minDistance) / span, 0.0f, 1.0f) :
+		                           1.0f;
+
+		const int target = std::clamp(
+			static_cast<int>(std::lround(minGrid + progress * (maxGrid - minGrid))),
+			_config.minGodrayGrid,
+			_config.maxGodrayGrid);
+
+		if (target == _lastGodrayGrid) {
+			return;
+		}
+
+		// A grid step spans a wide distance range; require some movement away from the last
+		// change so the beam quality does not flicker while the distance hovers on a boundary.
+		if (_lastGodrayGrid >= 0 && std::abs(a_shadowDistance - _lastGodrayGridDistance) < kGodrayGridHysteresis) {
+			return;
+		}
+
+		_lastGodrayGrid = target;
+		_lastGodrayGridDistance = a_shadowDistance;
+
+		REX::INFO("Applying godray grid {}.", target);
+		RE::Console::ExecuteCommand(std::format("gr grid {}", target).c_str());
 	}
 
 	void Tuner::ApplyGodrayQuality(float a_shadowDistance)
@@ -226,7 +268,7 @@ namespace PerfTuner
 		const float fps = median > 0.0f ? 1000.0f / median : 0.0f;
 
 		REX::INFO(
-			"cached={:.0f} setting={:.0f} momentum={:+.2f} load={:.1f}% fps={:.1f} frame={:.2f}ms median={:.2f}ms gameDelta={:.2f}ms paused={} grace={} gr={} grSetting={}",
+			"cached={:.0f} setting={:.0f} momentum={:+.2f} load={:.1f}% fps={:.1f} frame={:.2f}ms median={:.2f}ms gameDelta={:.2f}ms paused={} grace={} gr={} grSetting={} grid={}",
 			CachedShadowDistance(),
 			setting ? setting->GetFloat() : 0.0f,
 			_momentum,
@@ -238,6 +280,9 @@ namespace PerfTuner
 			a_paused,
 			a_grace,
 			_config.adjustGodrayQuality ? _config.GodrayQualityFor(CachedShadowDistance()) : -1,
-			godray && godray->GetType() == RE::Setting::SETTING_TYPE::kInt ? godray->GetInt() : -1);
+			godray && godray->GetType() == RE::Setting::SETTING_TYPE::kInt ? godray->GetInt() : -1,
+			_lastGodrayGrid);
 	}
 }
+
+

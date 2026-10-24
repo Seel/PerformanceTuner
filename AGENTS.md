@@ -126,6 +126,17 @@ RE::Console::ExecuteCommand("gr quality 2");
 Quality is derived from the shadow distance with `fGRQualityShadowDist1..3` and clamped
 to `iMinGRQuality..iMaxGRQuality`. It is off by default (`bAdjustGRQuality=0`).
 
+The godray **grid** is the alternative performance knob (`bAdjustGRGrid=0` by default).
+`gr grid <size>` sets the base godray grid resolution (the executable's help text says
+so; there is also an internal `UpdateGodraySettings`). There is no INI key for it and
+`BSShadowLight::godrayGridResolution` is only a per-light copy, so the console command
+is the reliable path. The plugin interpolates the grid from `iGRGridMin` (at
+`fShadowDirDistanceMin`) to `iGRGridMax` (at `fShadowDirDistanceMax`), rounded to an
+integer, and only issues a command when the value changes and the distance has moved at
+least 150 units since the last change (hysteresis against flutter). Both knobs can be
+enabled together for maximum savings. Godray values are re-applied after every
+load/menu resume because the engine may recreate the volumes.
+
 ## Per-frame execution
 
 - `F4SE::GetTaskInterface()->AddTaskPermanent(...)` runs the tick once per frame on the
@@ -224,3 +235,4 @@ mods; this plugin uses CommonLibF4's Address Library path.
 The plugin code is MIT (original copyright 2017 Daniel Pitts, see `LICENSE`).
 CommonLibF4 is GPL-3.0-or-later with a modding exception; distributed binaries that link
 it are subject to those terms.
+

@@ -26,6 +26,7 @@ namespace PerfTuner
 		[[nodiscard]] float MedianFrameTime(std::chrono::steady_clock::time_point a_now) const noexcept;
 		void ApplyAdjustment();
 		void ApplyGodrayQuality(float a_shadowDistance);
+		void ApplyGodrayGrid(float a_shadowDistance);
 		void LogDiagnostics(float a_frameTime, bool a_paused, bool a_grace);
 
 		Config                                _config;
@@ -36,6 +37,8 @@ namespace PerfTuner
 		bool                                  _wasPaused{ true };
 		bool                                  _warnedMissingSetting{ false };
 		int                                   _lastGodrayQuality{ -1 };
+		int                                   _lastGodrayGrid{ -1 };
+		float                                 _lastGodrayGridDistance{ 0.0f };
 		std::chrono::steady_clock::time_point _resumeAt{};
 		std::chrono::steady_clock::time_point _lastDiagnostic{};
 	};
