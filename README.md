@@ -30,8 +30,9 @@ offset files. Game versions are resolved through the F4SE Address Library.
 - The NG runtime (1.10.984) uses the same F4SE API and the plugin carries NG IDs, but
   it has not been tested.
 - The original OG runtime (1.10.163, including the GOG release) uses F4SE 0.6.23, which
-  predates `AddTaskPermanent`. An experimental fallback (a paced task) is included, but
-  it has not been tested on an OG install yet.
+  predates `AddTaskPermanent`. OG support is experimental: it hooks the `Main::OnIdle`
+  call in the main loop (with a paced-task fallback) and has not yet been tested on an
+  OG install.
 - F4SE matching the game version
 - [Address Library for F4SE Plugins](https://www.nexusmods.com/fallout4/mods/47327)
   (`version-<game version>.bin` in `Data\F4SE\Plugins`)

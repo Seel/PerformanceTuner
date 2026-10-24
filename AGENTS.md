@@ -158,17 +158,20 @@ metadata (`addressIndependence`, `compatibleVersions`) is never read (harmless),
 drains the task queue in a `while (!s_tasks.empty())` loop, so a task must not re-queue
 itself; it would run again in the same pass, forever.
 
-The plugin branches on `F4SE::GetF4SEVersion()`: 0.7.x+ uses `AddTaskPermanent`, 0.6.x
-starts a small pacer thread that adds at most one `AddTask` per frame (guarded by
-`g_tickPending`); the task itself still runs on the main thread. The cost is one small
-allocation per frame and no code patching. A `Main::OnIdle` call-site hook would avoid
-that allocation, but its call site and signature cannot be validated without a 1.10.163
-install, so it remains a possible follow-up once OG testing is available.
+The plugin branches on `F4SE::GetF4SEVersion()`. 0.7.x+ uses `AddTaskPermanent`. 0.6.x
+(OG) patches the `call Main::OnIdle` instruction in the main loop: `FindOnIdleCallSite`
+scans `Main::Run` and `Main::Run_WindowsMessageLoop` for a direct `E8` call whose target
+is `Main::OnIdle`, then `REL::Trampoline::write_call<5>` replaces that one instruction.
+The hook calls the original OnIdle and then runs the tick. If no call site is found (or
+the whole-`.text` fallback is ambiguous), a pacer thread that enqueues at most one
+`AddTask` per frame is used instead.
+
+This path is **untested** (no 1.10.163 install during development). It assumes
+`Main::OnIdle` takes only `this` and that the call is a direct rel32 call. If the game
+misbehaves on OG, set `bUseOnIdleHook=0` to force the paced-task fallback.
 
 OG still needs `version-1-10-163-0.bin` next to the plugin and F4SE 0.6.23; the OG IDs
-are compiled in through `COMMONLIB_RUNTIMECOUNT=3`. The plugin log shows
-`F4SE 0.6.23.0 detected (OG generation): using the paced task tick fallback.` when the
-fallback is active.
+are compiled in through `COMMONLIB_RUNTIMECOUNT=3`.
 
 F4SE also ignores `CompatibleVersions` when the plugin declares AE address-library and
 layout independence, so within AE 1.11.x a new patch only needs an updated Address

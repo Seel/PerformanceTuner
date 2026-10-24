@@ -129,6 +129,8 @@ namespace
 			if (const auto value = ParseFloat(a_value)) {
 				a_config.loadWindowTime = *value;
 			}
+		} else if (IEquals(a_key, "bUseOnIdleHook"sv)) {
+			a_config.useOnIdleHook = ParseBool(a_value);
 		}
 	}
 
