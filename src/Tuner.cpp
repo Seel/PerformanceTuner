@@ -27,9 +27,10 @@ namespace
 		RE::Console::ExecuteCommand(std::format("gr grid {}", a_value).c_str());
 	}
 
-	// The grid branch of the handler compiles to `cvttss2si eax, xmm1; mov [rip+disp], eax`
-	// in every tested runtime, so the global can be recovered from that displacement. The
-	// candidate is validated against the game's .data section before it is used.
+	// The grid branch of the handler compiles to `cvttss2si rax, xmm0; mov [rip+disp], eax`
+	// in every tested runtime, so the global can be recovered from that displacement. Note the
+	// REX.W/rax encoding here: the debug branch uses `cvttss2si eax, xmm1` instead and writing
+	// its global turns on wireframe/godray-only debug modes.
 	[[nodiscard]] std::int32_t* FindGodrayGridGlobal()
 	{
 		const auto* command = RE::SCRIPT_FUNCTION::LocateConsoleCommand("UpdateGodraySettings"sv);
@@ -43,7 +44,7 @@ namespace
 		const auto dataBegin = reinterpret_cast<std::uintptr_t>(data.GetPointer<std::byte>());
 		const auto dataEnd = dataBegin + data.GetSize();
 
-		static constexpr std::array<std::uint8_t, 6> kStorePattern{ 0xF3, 0x0F, 0x2C, 0xC1, 0x89, 0x05 };
+		static constexpr std::array<std::uint8_t, 7> kStorePattern{ 0xF3, 0x48, 0x0F, 0x2C, 0xC0, 0x89, 0x05 };
 		constexpr std::size_t                        kScanBytes = 0x1400;
 
 		const auto* code = reinterpret_cast<const std::uint8_t*>(command->executeFunction);

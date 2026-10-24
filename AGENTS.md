@@ -138,17 +138,23 @@ enabled together for maximum savings. Godray values are re-applied after every
 load/menu resume because the engine may recreate the volumes.
 
 The `gr` command handler was disassembled to understand the cost: for `grid` it simply
-stores `(int)argument` into an engine global (AE 1.11.240: RVA `0x3E7136C`, an `int32`
-in `.data`); the renderer reads that global every frame. The command is therefore only
-a writer, and each call echoes/prints in the console.
+stores `(int)argument` into an engine global (AE 1.11.240: RVA `0x3E7137C`, OG:
+`0x673296C`, both `int32` in `.data`); the renderer reads that global every frame. The
+command is therefore only a writer, and each call echoes/prints in the console.
 
-The plugin locates that global silently, without running the command: it finds the
+Beware the neighbouring `gr debug <mode>` branch: it stores its own int at
+`0x3E7136C` (AE) and compiles to `cvttss2si eax, xmm1` (`F3 0F 2C C1 89 05`). Writing
+that global with 1/2 turns on wireframe / godray-only debug modes, which is how the
+first version of this lookup went wrong. The grid branch uses
+`cvttss2si rax, xmm0` — pattern `F3 48 0F 2C C0 89 05`.
+
+The plugin locates the grid global silently, without running the command: it finds the
 `UpdateGodraySettings` entry in the console function table through
-`RE::SCRIPT_FUNCTION::LocateConsoleCommand`, scans the handler for the grid branch's
-`F3 0F 2C C1 89 05` store (present in both OG and AE), and extracts the RIP-relative
-target, validating that it lands inside `.data`. The resulting address is used from then
-on as a plain int store — no command, no echo, no parsing. If the command or a unique
-candidate is not found it logs a warning and falls back to the console command path.
+`RE::SCRIPT_FUNCTION::LocateConsoleCommand`, scans the handler for that `F3 48 0F 2C C0
+89 05` store (present in both OG and AE), and extracts the RIP-relative target,
+validating that it lands inside `.data`. The resulting address is used from then on as a
+plain int store — no command, no echo, no parsing. If the command or a unique candidate
+is not found it logs a warning and falls back to the console command path.
 `iGRGridStep` still quantises the values.
 
 Note: an earlier attempt calibrated by executing `gr grid 6/13/6` and diffing `.data`;
