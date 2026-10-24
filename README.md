@@ -24,7 +24,14 @@ offset files. Game versions are resolved through the F4SE Address Library.
 
 ## Requirements
 
-- Fallout 4 (OG 1.10.163, NG 1.10.984 or AE 1.11.x)
+- **Fallout 4 AE 1.11.x** (tested on 1.11.240). The plugin relies on the
+  `AddTaskPermanent` task interface and the plugin metadata introduced with the
+  F4SE 0.7.x (NG/AE) generation.
+- The NG runtime (1.10.984) uses the same F4SE API and the plugin carries NG IDs, but
+  it has not been tested.
+- The original OG runtime (1.10.163, including the GOG release) is **not supported**:
+  its F4SE (0.6.23) predates both the task interface and the plugin metadata this
+  plugin uses. Supporting it would need a separate code path and testing.
 - F4SE matching the game version
 - [Address Library for F4SE Plugins](https://www.nexusmods.com/fallout4/mods/47327)
   (`version-<game version>.bin` in `Data\F4SE\Plugins`)

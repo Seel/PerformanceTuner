@@ -141,6 +141,30 @@ The controller is deliberately more complicated than the original:
 - Downward response is intentionally faster than upward (`MomentumDown...` vs
   `MomentumUp...`).
 
+## Runtime compatibility (F4SE generations)
+
+The plugin is built against the F4SE 0.7.x (NG/AE) API generation. This matters more
+than the game version itself:
+
+| Runtime | F4SE | Status |
+|---|---|---|
+| AE 1.11.x | 0.7.x | supported, tested on 1.11.240 |
+| NG 1.10.980/984 | 0.7.x | same API and NG IDs are compiled in; untested |
+| OG 1.10.163 (incl. GOG) | 0.6.23 | **not supported** |
+
+Why OG does not work: F4SE 0.6.23 has no `F4SEPlugin_Version` export, so the plugin
+metadata (`addressIndependence`, `compatibleVersions`) is never read, and its
+`F4SETaskInterface` has only `AddTask` / `AddUITask`. The plugin calls
+`AddTaskPermanent` unconditionally; on 0.6.23 that reads past the interface struct.
+Supporting OG requires guarding on `F4SE::GetF4SEVersion()`, replacing the permanent
+task with a self-requeueing `AddTask` (or a `Main::OnIdle` hook), verifying the OG IDs
+against `version-1-10-163-0.bin`, and testing on a real OG install.
+
+F4SE also ignores `CompatibleVersions` when the plugin declares AE address-library and
+layout independence, so within AE 1.11.x a new patch only needs an updated Address
+Library file — no plugin rebuild. A new runtime family (e.g. 1.12.x) changes the
+independence constants and does require a rebuild against updated CommonLibF4.
+
 ## Updating for a new game version
 
 1. Update the submodule to the CommonLibF4 commit that supports the new runtime family
