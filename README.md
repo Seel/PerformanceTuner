@@ -147,7 +147,9 @@ To install automatically during development, set `XSE_FO4_GAME_PATH` to the game
 
 ## Troubleshooting
 
-- `PerformanceTuner.log` should contain `Target band <min>-<max> FPS ...` after loading.
+- Logging is off by default. To diagnose, set `bEnableLogging=1` (and optionally
+  `bShowDiagnostics=1`); `PerformanceTuner.log` should then contain
+  `Target band <min>-<max> FPS ...` after loading.
 - If the plugin does not appear in `f4se.log`, check that F4SE and the Address Library
   match the game version.
 - The controller only becomes active once the world is loaded; main menu, loading
