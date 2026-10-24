@@ -153,13 +153,16 @@ namespace
 
 			auto config = PerfTuner::Config::Load(configPath);
 			REX::INFO(
-				"Target band {:.0f}-{:.0f} FPS ({:.2f} ms at max), distance {:.0f}..{:.0f}, godrays {}.",
+				"Target band {:.0f}-{:.0f} FPS ({:.2f} ms at max), distance {:.0f}..{:.0f}, godray quality {}, grid {}..{} ({}).",
 				config.minFPS,
 				config.maxFPS,
 				config.TargetFrameTime(),
 				config.minDistance,
 				config.maxDistance,
-				config.adjustGodrayQuality ? "on" : "off");
+				config.adjustGodrayQuality ? "on" : "off",
+				config.minGodrayGrid,
+				config.maxGodrayGrid,
+				config.adjustGodrayGrid ? "on" : "off");
 
 			g_tuner = std::make_unique<PerfTuner::Tuner>(std::move(config));
 
